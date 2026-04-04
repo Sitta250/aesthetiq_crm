@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Staff {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  avatarInitials  String
+  role            Role     @default(staff)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  leads     Lead[]
+  tasks     Task[]
+  notes     Note[]
+}
+
+model Lead {
+  id                String      @id @default(cuid())
+  name              String
+  phone             String?
+  email             String?
+  nationality       String?
+  language          Language    @default(EN)
+  treatmentInterest String
+  travelDateStart   DateTime?
+  travelDateEnd     DateTime?
+  source            LeadSource
+  stage             LeadStage   @default(new_lead)
+  isForeign         Boolean     @default(false)
+  isHot             Boolean     @default(false)
+  lostReason        String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  staffId   String?
+  staff     Staff?   @relation(fields: [staffId], references: [id])
+
+  tasks     Task[]
+  notes     Note[]
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  title     String
+  dueAt     DateTime
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  leadId  String
+  lead    Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  staffId String?
+  staff   Staff?  @relation(fields: [staffId], references: [id])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  leadId  String
+  lead    Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  staffId String?
+  staff   Staff?  @relation(fields: [staffId], references: [id])
+}
+
+model Template {
+  id       String           @id @default(cuid())
+  name     String
+  language Language
+  body     String
+  category TemplateCategory
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  admin
+  staff
+  doctor
+}
+
+enum Language {
+  EN
+  TH
+  ZH
+  JA
+  RU
+  KO
+  AR
+  OTHER
+}
+
+enum LeadSource {
+  instagram
+  facebook
+  line
+  whatsapp
+  website
+  referral
+  other
+}
+
+enum LeadStage {
+  new_lead
+  contacted
+  qualified
+  consultation_booked
+  deposit_pending
+  deposit_paid
+  treatment_booked
+  lost
+}
+
+enum TemplateCategory {
+  welcome
+  follow_up
+  deposit_reminder
+  confirmation
+  re_engage
+}
