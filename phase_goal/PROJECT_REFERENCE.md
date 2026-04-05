@@ -90,7 +90,7 @@ Seed data uses the enum values; UI renders the display labels from this mapping.
 - CLAUDE.md written for AI tool context
 - Environment variables configured
 
-### Phase 2 — Database Schema
+### Phase 2 — Database Schema ✅
 
 Phase 2 defines the **single source of truth** for leads, ownership, follow-up artifacts, and multilingual templates so later phases (board, tasks, dashboard, webhooks) read and write consistent data. The schema should support the clinic’s core loop: **capture → qualify → book → deposit → treatment**, with clear attribution to **staff** and **source**, and enough structure to answer the [KPI stack](#kpi-stack) without ad-hoc spreadsheets.
 
@@ -131,7 +131,7 @@ Tasks carry `dueAt`, `done`, and optional staff assignment for the follow-up que
 **Out of scope for Phase 2**  
 REST routes, Zod, and UI — those belong to Phases 3 onward; Phase 2 only ensures the database layer matches this contract.
 
-### Phase 3 — Pipeline Board
+### Phase 3 — Pipeline Board ✅
 - Kanban board with 8 stage columns
 - Lead cards showing name, nationality, treatment, source, urgency, staff
 - Create new lead form (manual entry)

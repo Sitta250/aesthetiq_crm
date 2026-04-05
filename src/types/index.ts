@@ -19,6 +19,27 @@ export type LeadSource =
 
 export type Language = 'EN' | 'TH' | 'ZH' | 'JA' | 'RU' | 'KO' | 'AR' | 'OTHER'
 
+export type Role = 'admin' | 'staff' | 'doctor'
+
+export type TemplateCategory =
+  | 'welcome'
+  | 'follow_up'
+  | 'deposit_reminder'
+  | 'confirmation'
+  | 're_engage'
+
+// ---------------------------------------------------------------------------
+// Base types (scalar fields only — match Prisma model columns)
+// ---------------------------------------------------------------------------
+
+export interface Staff {
+  id: string
+  name: string
+  email: string
+  avatarInitials: string
+  role: Role
+}
+
 export interface Lead {
   id: string
   name: string
@@ -34,7 +55,6 @@ export interface Lead {
   isForeign: boolean
   isHot: boolean
   staffId?: string
-  notes?: string
   lostReason?: string
   firstContactedAt?: Date
   createdAt: Date
@@ -59,18 +79,24 @@ export interface Note {
   createdAt: Date
 }
 
-export interface Staff {
-  id: string
-  name: string
-  email: string
-  avatarInitials: string
-  role: 'admin' | 'staff' | 'doctor'
-}
-
 export interface Template {
   id: string
   name: string
   language: Language
   body: string
-  category: 'welcome' | 'follow_up' | 'deposit_reminder' | 'confirmation' | 're_engage'
+  category: TemplateCategory
+}
+
+// ---------------------------------------------------------------------------
+// Relation types (match Prisma include payloads)
+// ---------------------------------------------------------------------------
+
+export type NoteWithStaff = Note & { staff: Staff | null }
+
+export type TaskWithStaff = Task & { staff: Staff | null }
+
+export type LeadWithBoardRelations = Lead & {
+  staff: Staff | null
+  tasks: TaskWithStaff[]
+  notes: NoteWithStaff[]
 }
