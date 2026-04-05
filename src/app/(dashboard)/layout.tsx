@@ -9,39 +9,39 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900">
       {/* Sidebar */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white">
         {/* Brand */}
         <div className="flex flex-col gap-1 px-4 py-5">
-          <span className="text-sm font-semibold tracking-tight text-white">
+          <span className="text-sm font-semibold tracking-tight text-gray-900">
             AesthetiQ CRM
           </span>
           <Badge
             variant="outline"
-            className="w-fit border-zinc-700 px-1.5 py-0 text-[10px] text-zinc-400"
+            className="w-fit border-gray-300 px-1.5 py-0 text-[10px] text-gray-500"
           >
             Demo Clinic
           </Badge>
         </div>
 
-        <Separator className="bg-zinc-800" />
+        <Separator className="bg-gray-200" />
 
         {/* Nav */}
         <div className="flex-1 py-4">
           <AppNav />
         </div>
 
-        <Separator className="bg-zinc-800" />
+        <Separator className="bg-gray-200" />
 
         {/* User placeholder */}
         <div className="flex items-center gap-3 px-4 py-4">
           <Avatar className="h-7 w-7">
-            <AvatarFallback className="bg-zinc-700 text-xs text-zinc-400">
+            <AvatarFallback className="bg-gray-200 text-xs text-gray-500">
               ?
             </AvatarFallback>
           </Avatar>
-          <span className="text-xs text-zinc-500">Staff</span>
+          <span className="text-xs text-gray-500">Staff</span>
         </div>
       </aside>
 

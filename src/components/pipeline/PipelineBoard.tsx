@@ -118,7 +118,7 @@ export default function PipelineBoard() {
   if (isPending) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-zinc-500">Loading pipeline…</p>
+        <p className="text-sm text-gray-400">Loading pipeline…</p>
       </div>
     );
   }
@@ -149,7 +149,7 @@ export default function PipelineBoard() {
       />
 
       {/* Board columns */}
-      <div className="flex flex-1 gap-3 overflow-x-auto p-4">
+      <div className="flex flex-1 gap-3 overflow-x-auto bg-gray-50 p-4">
         {STAGE_CONFIG.map(({ stage, label }) => (
           <PipelineColumn
             key={stage}

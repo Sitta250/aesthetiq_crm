@@ -40,15 +40,15 @@ export default function AppNav() {
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "bg-zinc-800 text-white"
-                : "text-zinc-400 hover:bg-zinc-800 hover:text-white",
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-500 hover:bg-gray-100 hover:text-gray-900",
               item.disabled && "pointer-events-none opacity-40"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
             <span>{item.label}</span>
             {item.disabled && (
-              <span className="ml-auto text-[10px] font-normal text-zinc-500">
+              <span className="ml-auto text-[10px] font-normal text-gray-400">
                 Phase 5
               </span>
             )}

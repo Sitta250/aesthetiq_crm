@@ -50,10 +50,10 @@ export default function LeadCard({ lead, onSelect }: Props) {
       onFocus={prefetchDetail}
       onClick={() => onSelect(lead)}
       className={cn(
-        "relative w-full text-left rounded-md border bg-zinc-800 px-3 py-2.5 transition-colors",
+        "relative w-full text-left rounded-md border bg-white px-3 py-2.5 transition-colors",
         urgent
-          ? "border-red-500/40 hover:border-red-500/60"
-          : "border-zinc-700 hover:border-zinc-600"
+          ? "border-red-300 hover:border-red-400"
+          : "border-gray-200 hover:border-gray-300"
       )}
     >
       {/* Urgency dot */}
@@ -62,28 +62,28 @@ export default function LeadCard({ lead, onSelect }: Props) {
       )}
 
       {/* Name */}
-      <p className="truncate pr-4 text-sm font-medium text-zinc-100">
+      <p className="truncate pr-4 text-sm font-medium text-gray-900">
         {lead.name}
       </p>
 
       {/* Treatment */}
-      <p className="mt-0.5 truncate text-xs text-zinc-400">
+      <p className="mt-0.5 truncate text-xs text-gray-500">
         {lead.treatmentInterest}
       </p>
 
       {/* Meta row */}
       <div className="mt-1.5 flex items-center gap-1.5">
         {lead.nationality && (
-          <span className="text-[10px] text-zinc-500">{lead.nationality}</span>
+          <span className="text-[10px] text-gray-400">{lead.nationality}</span>
         )}
         <Badge
           variant="outline"
-          className="border-zinc-700 px-1 py-0 text-[10px] text-zinc-500"
+          className="border-gray-300 px-1 py-0 text-[10px] text-gray-500"
         >
           {SOURCE_LABELS[lead.source] ?? lead.source}
         </Badge>
         {lead.staff && (
-          <span className="ml-auto font-mono text-[10px] font-medium text-zinc-500">
+          <span className="ml-auto font-mono text-[10px] font-medium text-gray-400">
             {lead.staff.avatarInitials}
           </span>
         )}

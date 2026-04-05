@@ -70,22 +70,22 @@ export default function BoardToolbar({
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-zinc-800 bg-zinc-950 px-4 py-2.5">
+    <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-4 py-2.5">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search leads…"
-          className="h-8 w-44 border-zinc-700 bg-zinc-900 pl-8 text-sm placeholder:text-zinc-500 focus-visible:border-zinc-500"
+          className="h-8 w-44 border-gray-300 bg-white pl-8 text-sm placeholder:text-gray-400 focus-visible:border-gray-400"
         />
         {isFetching && (
-          <Loader2 className="absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin text-zinc-500" />
+          <Loader2 className="absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin text-gray-400" />
         )}
       </div>
 
-      <div className="h-5 w-px bg-zinc-800" />
+      <div className="h-5 w-px bg-gray-200" />
 
       {/* All / Foreign / Local pills */}
       {FOREIGN_PILLS.map(({ value, label }) => (
@@ -95,8 +95,8 @@ export default function BoardToolbar({
           className={cn(
             "h-8 rounded-md px-3 text-xs font-medium transition-colors",
             foreign === value
-              ? "bg-zinc-700 text-zinc-100"
-              : "text-zinc-400 hover:text-zinc-200"
+              ? "bg-gray-200 text-gray-900"
+              : "text-gray-500 hover:text-gray-800"
           )}
         >
           {label}
@@ -109,14 +109,14 @@ export default function BoardToolbar({
         className={cn(
           "h-8 rounded-md px-3 text-xs font-medium transition-colors",
           hot
-            ? "bg-amber-600/20 text-amber-400"
-            : "text-zinc-400 hover:text-zinc-200"
+            ? "bg-amber-100 text-amber-700"
+            : "text-gray-500 hover:text-gray-800"
         )}
       >
         Hot
       </button>
 
-      <div className="h-5 w-px bg-zinc-800" />
+      <div className="h-5 w-px bg-gray-200" />
 
       {/* Staff filter */}
       <Select
@@ -125,11 +125,11 @@ export default function BoardToolbar({
           onStaffIdChange(!v || v === "_all" ? "" : v)
         }
       >
-        <SelectTrigger className="h-8 w-32 border-zinc-700 bg-zinc-900 text-xs text-zinc-300">
-          <SelectValue placeholder="All staff">
+        <SelectTrigger className="h-8 w-64 border-gray-300 bg-white text-xs text-gray-700">
+          <SelectValue>
             {staffId && staffId !== "_all"
-              ? (staff.find((s) => s.id === staffId)?.name ?? undefined)
-              : undefined}
+              ? (staff.find((s) => s.id === staffId)?.name ?? "All staff")
+              : "All staff"}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -149,8 +149,12 @@ export default function BoardToolbar({
           onSourceChange(!v || v === "_all" ? "" : v)
         }
       >
-        <SelectTrigger className="h-8 w-32 border-zinc-700 bg-zinc-900 text-xs text-zinc-300">
-          <SelectValue placeholder="All sources" />
+        <SelectTrigger className="h-8 w-32 border-gray-300 bg-white text-xs text-gray-700">
+          <SelectValue>
+            {source && source !== "_all"
+              ? (SOURCES.find((s) => s.value === source)?.label ?? "All sources")
+              : "All sources"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="_all">All sources</SelectItem>

@@ -17,20 +17,20 @@ export default function PipelineColumn({
   onSelectLead,
 }: Props) {
   return (
-    <div className="flex w-64 shrink-0 flex-col rounded-lg border border-zinc-800 bg-zinc-900">
+    <div className="flex w-64 shrink-0 flex-col rounded-lg border border-gray-200 bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2.5">
+      <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2.5">
         <span
           className={cn(
             "text-sm font-medium",
-            stage === "lost" ? "text-red-400" : "text-zinc-200"
+            stage === "lost" ? "text-red-500" : "text-gray-800"
           )}
         >
           {label}
         </span>
         <Badge
           variant="outline"
-          className="border-zinc-700 px-1.5 py-0 text-[11px] text-zinc-400"
+          className="border-gray-300 px-1.5 py-0 text-[11px] text-gray-500"
         >
           {leads.length}
         </Badge>
