@@ -1,6 +1,12 @@
 "use client";
 
+import { useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import {
+  fetchLeadDetail,
+  fetchTemplatesByLanguage,
+} from "@/lib/lead-queries";
 import { isUrgent } from "@/lib/urgency";
 import { cn } from "@/lib/utils";
 import type { LeadWithBoardRelations } from "@/types";
@@ -17,15 +23,32 @@ const SOURCE_LABELS: Record<string, string> = {
 
 interface Props {
   lead: LeadWithBoardRelations;
-  onSelect: (id: string) => void;
+  onSelect: (lead: LeadWithBoardRelations) => void;
 }
 
 export default function LeadCard({ lead, onSelect }: Props) {
+  const queryClient = useQueryClient();
   const urgent = isUrgent(lead.isHot, lead.tasks);
+
+  const prefetchDetail = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ["lead", lead.id],
+      queryFn: () => fetchLeadDetail(lead.id),
+      staleTime: 60_000,
+    });
+    queryClient.prefetchQuery({
+      queryKey: ["templates", lead.language],
+      queryFn: () => fetchTemplatesByLanguage(lead.language),
+      staleTime: 5 * 60_000,
+    });
+  }, [queryClient, lead.id, lead.language]);
 
   return (
     <button
-      onClick={() => onSelect(lead.id)}
+      type="button"
+      onMouseEnter={prefetchDetail}
+      onFocus={prefetchDetail}
+      onClick={() => onSelect(lead)}
       className={cn(
         "relative w-full text-left rounded-md border bg-zinc-800 px-3 py-2.5 transition-colors",
         urgent

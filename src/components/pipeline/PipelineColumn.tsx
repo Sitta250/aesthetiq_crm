@@ -7,7 +7,7 @@ interface Props {
   stage: LeadStage;
   label: string;
   leads: LeadWithBoardRelations[];
-  onSelectLead: (id: string) => void;
+  onSelectLead: (lead: LeadWithBoardRelations) => void;
 }
 
 export default function PipelineColumn({

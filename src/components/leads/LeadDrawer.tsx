@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatBangkokDateTime } from "@/lib/dates";
+import {
+  fetchLeadDetail,
+  fetchTemplatesByLanguage,
+  normalizeLeadForDrawer,
+} from "@/lib/lead-queries";
 import { Copy, Check } from "lucide-react";
 import {
   Drawer,
@@ -49,9 +54,16 @@ interface Props {
   leadId: string | null;
   open: boolean;
   onClose: () => void;
+  /** From board list — instant UI + parallel template fetch; merged with GET detail for notes. */
+  previewLead?: LeadWithBoardRelations | null;
 }
 
-export default function LeadDrawer({ leadId, open, onClose }: Props) {
+export default function LeadDrawer({
+  leadId,
+  open,
+  onClose,
+  previewLead,
+}: Props) {
   const queryClient = useQueryClient();
   const [noteContent, setNoteContent] = useState("");
   const [pendingLost, setPendingLost] = useState(false);
@@ -59,26 +71,30 @@ export default function LeadDrawer({ leadId, open, onClose }: Props) {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // Fetch full lead detail on open
-  const { data: lead, isLoading } = useQuery<LeadWithBoardRelations>({
+  const initialLead = useMemo(() => {
+    if (!leadId || !previewLead || previewLead.id !== leadId) return undefined;
+    return normalizeLeadForDrawer(previewLead);
+  }, [leadId, previewLead]);
+
+  // Full lead detail (notes, etc.); seed from board list for instant shell
+  const { data: lead, isPending } = useQuery<LeadWithBoardRelations>({
     queryKey: ["lead", leadId],
-    queryFn: async () => {
-      const res = await fetch(`/api/leads/${leadId}`);
-      if (!res.ok) throw new Error("Failed to fetch lead");
-      return res.json();
-    },
+    queryFn: () => fetchLeadDetail(leadId!),
     enabled: open && !!leadId,
+    initialData: initialLead,
+    staleTime: 60_000,
+    // Always merge fresh notes/tasks when opening the drawer; list payload has no notes.
+    refetchOnMount: "always",
   });
 
-  // Fetch templates filtered by lead language
+  const templateLanguage = lead?.language ?? initialLead?.language;
+
+  // Fetch templates in parallel with lead detail when language is known from preview or detail
   const { data: templates = [] } = useQuery<Template[]>({
-    queryKey: ["templates", lead?.language],
-    queryFn: async () => {
-      const res = await fetch(`/api/templates?language=${lead!.language}`);
-      if (!res.ok) throw new Error("Failed to fetch templates");
-      return res.json();
-    },
-    enabled: !!lead?.language,
+    queryKey: ["templates", templateLanguage],
+    queryFn: () => fetchTemplatesByLanguage(templateLanguage!),
+    enabled: open && !!templateLanguage,
+    staleTime: 5 * 60_000,
   });
 
   // PATCH lead (stage, lostReason, etc.)
@@ -162,7 +178,7 @@ export default function LeadDrawer({ leadId, open, onClose }: Props) {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <DrawerTitle className="truncate text-zinc-100">
-                {isLoading ? "Loading…" : (lead?.name ?? "—")}
+                {isPending && !lead ? "Loading…" : (lead?.name ?? "—")}
               </DrawerTitle>
               {lead && (
                 <p className="mt-0.5 text-xs text-zinc-400">

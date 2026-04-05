@@ -285,7 +285,11 @@ export default function CreateLeadDialog({ open, onOpenChange }: Props) {
               }
             >
               <SelectTrigger className="h-9 w-full border-input">
-                <SelectValue placeholder="Unassigned" />
+                <SelectValue placeholder="Unassigned">
+                  {form.staffId && form.staffId !== "_none"
+                    ? (staff.find((s) => s.id === form.staffId)?.name ?? undefined)
+                    : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">Unassigned</SelectItem>

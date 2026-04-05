@@ -46,6 +46,8 @@ export default function PipelineBoard() {
   const pathname = usePathname();
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [previewLead, setPreviewLead] =
+    useState<LeadWithBoardRelations | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   // Search debounce
@@ -91,6 +93,16 @@ export default function PipelineBoard() {
     queryFn: () => fetchLeads(filters),
     placeholderData: keepPreviousData,
   });
+
+  const handleSelectLead = useCallback((lead: LeadWithBoardRelations) => {
+    setSelectedLeadId(lead.id);
+    setPreviewLead(lead);
+  }, []);
+
+  const handleCloseDrawer = useCallback(() => {
+    setSelectedLeadId(null);
+    setPreviewLead(null);
+  }, []);
 
   const grouped = useMemo(() => {
     const map = Object.fromEntries(
@@ -144,7 +156,7 @@ export default function PipelineBoard() {
             stage={stage}
             label={label}
             leads={grouped[stage]}
-            onSelectLead={setSelectedLeadId}
+            onSelectLead={handleSelectLead}
           />
         ))}
       </div>
@@ -156,7 +168,8 @@ export default function PipelineBoard() {
       <LeadDrawer
         leadId={selectedLeadId}
         open={!!selectedLeadId}
-        onClose={() => setSelectedLeadId(null)}
+        previewLead={previewLead}
+        onClose={handleCloseDrawer}
       />
     </div>
   );

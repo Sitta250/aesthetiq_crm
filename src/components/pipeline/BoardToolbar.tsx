@@ -126,7 +126,11 @@ export default function BoardToolbar({
         }
       >
         <SelectTrigger className="h-8 w-32 border-zinc-700 bg-zinc-900 text-xs text-zinc-300">
-          <SelectValue placeholder="All staff" />
+          <SelectValue placeholder="All staff">
+            {staffId && staffId !== "_all"
+              ? (staff.find((s) => s.id === staffId)?.name ?? undefined)
+              : undefined}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="_all">All staff</SelectItem>
