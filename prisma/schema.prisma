@@ -50,6 +50,9 @@ model Lead {
 
   tasks     Task[]
   notes     Note[]
+
+  @@index([staffId])
+  @@index([source])
 }
 
 model Task {

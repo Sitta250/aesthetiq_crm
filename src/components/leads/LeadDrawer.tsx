@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatBangkokDateTime } from "@/lib/dates";
+import { formatApiError } from "@/lib/api-errors";
+import { mergeLeadIntoLeadsListCaches } from "@/lib/leads-cache";
 import {
   fetchLeadDetail,
   fetchTemplatesByLanguage,
@@ -16,13 +18,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -125,7 +120,6 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
   // ── Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // ── Seed from board list for instant drawer shell
   const initialLead = useMemo(() => {
@@ -164,7 +158,8 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
 
   // ── PATCH mutation (stage changes + profile edits)
   const patchMutation = useMutation({
-    mutationFn: async (data: object) => {
+    mutationFn: async (data: object): Promise<LeadWithBoardRelations> => {
+      if (!leadId) throw new Error("No lead selected");
       const res = await fetch(`/api/leads/${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -172,13 +167,19 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error ?? "Failed to update lead");
+        throw new Error(formatApiError(body, "Failed to update lead"));
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
-      queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
+    onSuccess: (updatedLead) => {
+      if (leadId) {
+        queryClient.setQueryData<LeadWithBoardRelations>(
+          ["lead", leadId],
+          updatedLead
+        );
+      }
+      // Update Kanban caches in place — avoids a slow full GET /api/leads refetch after save.
+      mergeLeadIntoLeadsListCaches(queryClient, updatedLead);
       setPendingLost(false);
       setLostReason("");
     },
@@ -268,7 +269,6 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
       setSelectedTemplateId("");
       setIsEditing(false);
       setEditForm(null);
-      setConfirmOpen(false);
       onClose();
     }
   };

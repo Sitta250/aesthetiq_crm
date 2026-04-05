@@ -88,11 +88,22 @@ export default function PipelineBoard() {
     [updateParam]
   );
 
-  const { data: leads = [], isPending, isFetching, isError } = useQuery({
+  const {
+    data,
+    isPending,
+    isFetching,
+    isError,
+    isPlaceholderData,
+  } = useQuery({
     queryKey: ["leads", filters],
     queryFn: () => fetchLeads(filters),
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
+
+  // Only full-page skeleton on first load — not when staff/source filter changes (keepPreviousData).
+  const showInitialSkeleton = isPending && data === undefined && !isPlaceholderData;
 
   const handleSelectLead = useCallback((lead: LeadWithBoardRelations) => {
     setSelectedLeadId(lead.id);
@@ -105,17 +116,17 @@ export default function PipelineBoard() {
   }, []);
 
   const grouped = useMemo(() => {
+    const list = data ?? [];
     const map = Object.fromEntries(
       STAGE_CONFIG.map(({ stage }) => [stage, [] as LeadWithBoardRelations[]])
     ) as Record<LeadStage, LeadWithBoardRelations[]>;
-    for (const lead of leads) {
+    for (const lead of list) {
       map[lead.stage]?.push(lead);
     }
     return map;
-  }, [leads]);
+  }, [data]);
 
-  // True initial load — no data in cache yet, nothing to show
-  if (isPending) {
+  if (showInitialSkeleton) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-gray-400">Loading pipeline…</p>
@@ -155,7 +166,7 @@ export default function PipelineBoard() {
             key={stage}
             stage={stage}
             label={label}
-            leads={grouped[stage]}
+            leads={grouped[stage] ?? []}
             onSelectLead={handleSelectLead}
           />
         ))}
