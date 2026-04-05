@@ -24,7 +24,7 @@
 - Template = canned reply in a specific language
 
 ## Key files
-- /lib/prisma.ts — Prisma client singleton
+- /src/lib/prisma.ts — Prisma client singleton (`import { PrismaClient } from '@/generated/prisma/client'`)
 - /lib/supabase.ts — Supabase client
 - /types/index.ts — all shared TypeScript types
 

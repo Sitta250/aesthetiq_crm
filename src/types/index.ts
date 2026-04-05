@@ -36,6 +36,7 @@ export interface Lead {
   staffId?: string
   notes?: string
   lostReason?: string
+  firstContactedAt?: Date
   createdAt: Date
   updatedAt: Date
 }
