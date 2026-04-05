@@ -30,21 +30,6 @@ isProject: false
 You asked to validate the **route/file tree** (likely “face tree” → **route tree** / **folder structure**). The canonical target is [phase_goal/PROJECT_REFERENCE.md](phase_goal/PROJECT_REFERENCE.md) **Folder Structure** section; the repo is **not** there yet: APIs are stubs, UI folders are missing, and there is a **critical routing conflict** (see below).
 
 ---
-
-## Pre-implementation fixes (do these first)
-
-### 1) Resolve duplicate `/` route (**decisions locked**)
-
-Two files both render `/`:
-
-- [src/app/page.tsx](src/app/page.tsx) — default Next.js marketing shell
-- [src/app/(dashboard)/page.tsx](src/app/%28dashboard%29/page.tsx) — pipeline placeholder (target for Kanban)
-
-Route groups like `(dashboard)` **do not** change the URL, so this pair is a **duplicate page at `/`**.
-
-**Locked decisions (Phase 3 pre-implementation):**
-
-| Question | Choice |
 |----------|--------|
 | Pipeline URL | **`/` (root)** — CRM pipeline is the main entry; no separate `/pipeline` segment for Phase 3. |
 | `(dashboard)/layout.tsx` | **App shell now** — header + **sidebar with nav placeholder** (stub links for Phase 5 analytics/reporting later). |

@@ -10,14 +10,15 @@ import {
   fetchTemplatesByLanguage,
   normalizeLeadForDrawer,
 } from "@/lib/lead-queries";
+import { sortTasksByUrgency } from "@/lib/task-queue";
 import { Check, Copy, Pencil, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { LeadWithBoardRelations, NoteWithStaff, Staff, Template } from "@/types";
+import type {
+  Lead,
+  LeadWithBoardRelations,
+  NoteWithStaff,
+  Staff,
+  TaskWithLead,
+  TaskWithStaff,
+  Template,
+} from "@/types";
+
+/** POST/PATCH /api/tasks — Prisma JSON uses ISO strings for dates */
+type ApiTaskResponse = {
+  id: string;
+  leadId: string;
+  staffId: string | null;
+  title: string;
+  dueAt: string;
+  done: boolean;
+  createdAt: string;
+  staff: Staff | null;
+  lead: Lead & { staff: Staff | null };
+};
+
+function taskWithStaffFromApi(t: ApiTaskResponse): TaskWithStaff {
+  return {
+    id: t.id,
+    leadId: t.leadId,
+    staffId: t.staffId ?? undefined,
+    title: t.title,
+    dueAt: new Date(t.dueAt),
+    done: t.done,
+    createdAt: new Date(t.createdAt),
+    staff: t.staff,
+  };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Convert a UTC date to a "YYYY-MM-DDTHH:MM" string in Bangkok time (UTC+7)
+ *  so it can be used as the value of a datetime-local input. */
+function utcToBangkokLocal(date: Date | string): string {
+  const ms = new Date(date).getTime() + 7 * 60 * 60 * 1000;
+  return new Date(ms).toISOString().slice(0, 16);
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -92,6 +136,176 @@ function buildEditForm(lead: LeadWithBoardRelations): EditForm {
   };
 }
 
+// ── TaskList ──────────────────────────────────────────────────────────────────
+
+function TaskList({
+  tasks,
+  staff,
+  onMarkDone,
+  pendingId,
+  onSaveTask,
+  savingTaskId,
+}: {
+  tasks: TaskWithStaff[];
+  staff: Staff[];
+  onMarkDone: (id: string) => void;
+  pendingId: string | null;
+  onSaveTask: (id: string, data: { title: string; dueAt: string; staffId: string | null }) => void;
+  savingTaskId: string | null;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDueAt, setEditDueAt] = useState("");
+  const [editStaffId, setEditStaffId] = useState("_none");
+
+  const startEdit = (task: TaskWithStaff) => {
+    setEditingId(task.id);
+    setEditTitle(task.title);
+    setEditDueAt(utcToBangkokLocal(task.dueAt));
+    setEditStaffId(task.staffId ?? "_none");
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  const handleSave = () => {
+    if (!editTitle.trim() || !editDueAt || !editingId) return;
+    onSaveTask(editingId, {
+      title: editTitle.trim(),
+      dueAt: new Date(editDueAt + ":00+07:00").toISOString(),
+      staffId: editStaffId !== "_none" ? editStaffId : null,
+    });
+    setEditingId(null);
+  };
+
+  const open = tasks.filter((t) => !t.done);
+  const done = tasks.filter((t) => t.done);
+  const sorted = [
+    ...open.sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()),
+    ...done.sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()),
+  ];
+
+  if (sorted.length === 0) {
+    return <p className="text-xs text-gray-400">No tasks yet.</p>;
+  }
+
+  const now = new Date();
+
+  return (
+    <div className="space-y-1.5">
+      {sorted.map((task) => {
+        const overdue = !task.done && new Date(task.dueAt) < now;
+        const isPending = pendingId === task.id;
+        const isEditing = editingId === task.id;
+        const isSaving = savingTaskId === task.id;
+
+        if (isEditing) {
+          return (
+            <div
+              key={task.id}
+              className="rounded-md bg-gray-50 divide-y divide-gray-200"
+
+            >
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="h-8 w-full border-0 bg-transparent px-2.5 text-sm text-gray-900 outline-none"
+                autoFocus
+              />
+              <div className="grid grid-cols-2 divide-x divide-gray-200">
+                <div className="grid gap-1 px-2.5 py-2">
+                  <label className="text-xs text-gray-500">Due (Bangkok time)</label>
+                  <input
+                    type="datetime-local"
+                    value={editDueAt}
+                    onChange={(e) => setEditDueAt(e.target.value)}
+                    className="w-full border-0 bg-transparent text-xs text-gray-900 outline-none"
+                  />
+                </div>
+                <div className="grid gap-1 px-2.5 py-2">
+                  <label className="text-xs text-gray-500">Assign to</label>
+                  <select
+                    value={editStaffId}
+                    onChange={(e) => setEditStaffId(e.target.value)}
+                    className="w-full border-0 bg-transparent text-xs text-gray-800 outline-none"
+                  >
+                    <option value="_none">Unassigned</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 px-2.5 py-2">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!editTitle.trim() || !editDueAt || isSaving}
+                  className="text-xs font-medium text-gray-700 disabled:opacity-40"
+                >
+                  {isSaving ? "Saving…" : "Save"}
+                </button>
+                <button type="button" onClick={cancelEdit} className="text-xs text-gray-400">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={task.id}
+            className="flex items-start gap-2.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2"
+          >
+            {/* Mark-done button */}
+            {!task.done ? (
+              <button
+                type="button"
+                onClick={() => onMarkDone(task.id)}
+                disabled={isPending}
+                title="Mark as done"
+                className={cn(
+                  "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border transition-colors",
+                  isPending
+                    ? "border-gray-300 bg-gray-200"
+                    : overdue
+                    ? "border-red-400 hover:bg-red-100"
+                    : "border-gray-400 hover:bg-gray-200"
+                )}
+              />
+            ) : (
+              <span className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-gray-300">
+                <Check className="h-2 w-2 text-white" />
+              </span>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <p className={cn("text-xs font-medium", task.done ? "text-gray-400 line-through" : "text-gray-800")}>
+                {task.title}
+              </p>
+              <p className={cn("mt-0.5 font-mono text-[10px]", overdue ? "text-red-400" : "text-gray-400")}>
+                {formatBangkokDateTime(task.dueAt)}
+                {task.staff && ` · ${task.staff.avatarInitials}`}
+              </p>
+            </div>
+
+            {/* Edit button */}
+            <button
+              type="button"
+              onClick={() => startEdit(task)}
+              title="Edit task"
+              className="shrink-0 text-gray-300 hover:text-gray-500 transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -108,6 +322,16 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
 
   // ── Notes state
   const [noteContent, setNoteContent] = useState("");
+
+  // ── Note edit state
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteContent, setEditNoteContent] = useState("");
+
+  // ── Task form state
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDueAt, setTaskDueAt] = useState(""); // datetime-local string (Bangkok)
+  const [taskStaffId, setTaskStaffId] = useState("_none");
 
   // ── Stage / lost state
   const [pendingLost, setPendingLost] = useState(false);
@@ -133,7 +357,6 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
     enabled: open && !!leadId,
     initialData: initialLead,
     staleTime: 60_000,
-    refetchOnMount: "always",
   });
 
   const templateLanguage = lead?.language ?? initialLead?.language;
@@ -199,6 +422,134 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
       setNoteContent("");
+    },
+  });
+
+  // ── Task mutation
+  const taskMutation = useMutation({
+    mutationFn: async (): Promise<ApiTaskResponse> => {
+      if (!leadId || !taskDueAt) throw new Error("Missing required fields");
+      // taskDueAt is "YYYY-MM-DDTHH:MM" entered in Bangkok time (UTC+7) — convert to UTC ISO
+      const isoDate = new Date(taskDueAt + ":00+07:00").toISOString();
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId,
+          title: taskTitle.trim(),
+          dueAt: isoDate,
+          ...(taskStaffId !== "_none" ? { staffId: taskStaffId } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create task");
+      return res.json();
+    },
+    onSuccess: (created) => {
+      if (!leadId) return;
+      const row = taskWithStaffFromApi(created);
+
+      queryClient.setQueryData<LeadWithBoardRelations>(["lead", leadId], (old) => {
+        if (!old) return old;
+        const tasks = [...old.tasks, row].sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        return { ...old, tasks };
+      });
+
+      const mergedLead = queryClient.getQueryData<LeadWithBoardRelations>([
+        "lead",
+        leadId,
+      ]);
+      if (mergedLead) mergeLeadIntoLeadsListCaches(queryClient, mergedLead);
+
+      const queueEntry: TaskWithLead = { ...row, lead: created.lead };
+      queryClient.setQueryData<TaskWithLead[]>(["tasks"], (old) => {
+        if (!old) return [queueEntry];
+        const next = [...old.filter((t) => t.id !== queueEntry.id), queueEntry];
+        return sortTasksByUrgency(next);
+      });
+
+      setShowTaskForm(false);
+      setTaskTitle("");
+      setTaskDueAt("");
+      setTaskStaffId("_none");
+    },
+  });
+
+  const handleCreateTask = () => {
+    if (!taskTitle.trim() || !taskDueAt) return;
+    taskMutation.mutate();
+  };
+
+  // ── Mark-done mutation
+  const markDoneMutation = useMutation({
+    mutationFn: async (taskId: string): Promise<ApiTaskResponse> => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ done: true }),
+      });
+      if (!res.ok) throw new Error("Failed to update task");
+      return res.json();
+    },
+    onSuccess: (updated) => {
+      if (!leadId) return;
+      const row = taskWithStaffFromApi(updated);
+
+      queryClient.setQueryData<LeadWithBoardRelations>(["lead", leadId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          tasks: old.tasks.map((t) => (t.id === row.id ? row : t)),
+        };
+      });
+
+      const mergedLead = queryClient.getQueryData<LeadWithBoardRelations>([
+        "lead",
+        leadId,
+      ]);
+      if (mergedLead) mergeLeadIntoLeadsListCaches(queryClient, mergedLead);
+
+      queryClient.setQueryData<TaskWithLead[]>(["tasks"], (old) =>
+        old ? old.filter((t) => t.id !== row.id) : old
+      );
+    },
+  });
+
+  // ── Edit note mutation
+  const editNoteMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: string; content: string }) => {
+      const res = await fetch(`/api/notes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error("Failed to update note");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
+      setEditingNoteId(null);
+      setEditNoteContent("");
+    },
+  });
+
+  // ── Edit task mutation
+  const editTaskMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { title: string; dueAt: string; staffId: string | null } }) => {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
     },
   });
 
@@ -269,6 +620,12 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
       setSelectedTemplateId("");
       setIsEditing(false);
       setEditForm(null);
+      setShowTaskForm(false);
+      setTaskTitle("");
+      setTaskDueAt("");
+      setTaskStaffId("_none");
+      setEditingNoteId(null);
+      setEditNoteContent("");
       onClose();
     }
   };
@@ -278,15 +635,18 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
 
   return (
     <>
-      <Drawer open={open} onOpenChange={handleOpenChange} direction="right">
-        <DrawerContent className="sm:max-w-[480px] flex flex-col bg-white border-gray-200">
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
+          showCloseButton={false}
+          className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-0 overflow-hidden p-0 bg-white sm:max-w-3xl"
+        >
           {/* ── Header ─────────────────────────────────────── */}
-          <DrawerHeader className="border-b border-gray-200 pb-3">
+          <DialogHeader className="border-b border-gray-200 px-4 pt-4 pb-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <DrawerTitle className="truncate text-gray-900">
+                <DialogTitle className="truncate text-gray-900">
                   {isPending && !lead ? "Loading…" : (lead?.name ?? "—")}
-                </DrawerTitle>
+                </DialogTitle>
                 {lead && !isEditing && (
                   <p className="mt-0.5 text-xs text-gray-500">
                     {SOURCE_LABELS[lead.source] ?? lead.source}
@@ -317,18 +677,17 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
                     {patchMutation.isPending ? "Saving…" : "Save changes"}
                   </Button>
                 )}
-                <DrawerClose asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-gray-500 hover:text-gray-900"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </DrawerClose>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-gray-500 hover:text-gray-900"
+                  onClick={() => handleOpenChange(false)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
-          </DrawerHeader>
+          </DialogHeader>
 
           {/* ── Scrollable body ─────────────────────────────── */}
           {lead && (
@@ -606,11 +965,50 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
                         <span className="text-[10px] font-medium text-gray-500">
                           {note.staff?.name ?? "Unknown"}
                         </span>
-                        <span className="text-[10px] text-gray-400">
-                          {formatBangkokDateTime(note.createdAt)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-400">
+                            {formatBangkokDateTime(note.createdAt)}
+                          </span>
+                          {editingNoteId !== note.id && (
+                            <button
+                              type="button"
+                              onClick={() => { setEditingNoteId(note.id); setEditNoteContent(note.content); }}
+                              className="text-gray-300 hover:text-gray-500 transition-colors"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <p className="whitespace-pre-wrap text-xs text-gray-700">{note.content}</p>
+                      {editingNoteId === note.id ? (
+                        <div className="space-y-1.5">
+                          <textarea
+                            value={editNoteContent}
+                            onChange={(e) => setEditNoteContent(e.target.value)}
+                            className="min-h-[64px] w-full resize-none rounded border-0 bg-transparent text-xs text-gray-700 outline-none"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => editNoteMutation.mutate({ id: note.id, content: editNoteContent.trim() })}
+                              disabled={!editNoteContent.trim() || editNoteMutation.isPending}
+                              className="text-xs font-medium text-gray-700 disabled:opacity-40"
+                            >
+                              {editNoteMutation.isPending ? "Saving…" : "Save"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingNoteId(null)}
+                              className="text-xs text-gray-400"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap text-xs text-gray-700">{note.content}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -630,6 +1028,101 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
                     {noteMutation.isPending ? "Saving…" : "Add note"}
                   </Button>
                 </div>
+              </section>
+
+              <Separator className="bg-gray-100" />
+
+              {/* ── Tasks ──────────────────────────────────────── */}
+              <section>
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  Tasks
+                </h3>
+                <TaskList
+                  tasks={lead.tasks as TaskWithStaff[]}
+                  staff={staff}
+                  onMarkDone={(id) => markDoneMutation.mutate(id)}
+                  pendingId={markDoneMutation.isPending ? (markDoneMutation.variables ?? null) : null}
+                  onSaveTask={(id, data) => editTaskMutation.mutate({ id, data })}
+                  savingTaskId={editTaskMutation.isPending ? (editTaskMutation.variables?.id ?? null) : null}
+                />
+
+                {/* Create task form — uses native elements to avoid Base UI / vaul pointer-event conflicts */}
+                {showTaskForm ? (
+                  <div
+                    className="mt-3 space-y-2"
+                    data-vaul-no-drag
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="rounded-md bg-gray-50 divide-y divide-gray-200">
+                      <input
+                        type="text"
+                        value={taskTitle}
+                        onChange={(e) => setTaskTitle(e.target.value)}
+                        placeholder="Task title…"
+                        className="h-8 w-full border-0 bg-transparent px-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                      />
+                      <div className="grid grid-cols-2 divide-x divide-gray-200">
+                        <div className="grid gap-1 px-2.5 py-2">
+                          <Label className="text-xs text-gray-500">Due (Bangkok time)</Label>
+                          <input
+                            type="datetime-local"
+                            value={taskDueAt}
+                            onChange={(e) => setTaskDueAt(e.target.value)}
+                            className="w-full border-0 bg-transparent text-xs text-gray-900 outline-none"
+                          />
+                        </div>
+                        <div className="grid gap-1 px-2.5 py-2">
+                          <Label className="text-xs text-gray-500">Assign to</Label>
+                          <select
+                            value={taskStaffId}
+                            onChange={(e) => setTaskStaffId(e.target.value)}
+                            className="w-full border-0 bg-transparent text-xs text-gray-800 outline-none"
+                          >
+                            <option value="_none">Unassigned</option>
+                            {staff.map((s: Staff) => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    {taskMutation.isError && (
+                      <p className="text-xs text-red-400">{taskMutation.error?.message}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleCreateTask}
+                        disabled={!taskTitle.trim() || !taskDueAt || taskMutation.isPending}
+                        className="h-7 text-xs"
+                      >
+                        {taskMutation.isPending ? "Saving…" : "Add task"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowTaskForm(false);
+                          setTaskTitle("");
+                          setTaskDueAt("");
+                          setTaskStaffId("_none");
+                        }}
+                        className="h-7 text-xs text-gray-500"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowTaskForm(true)}
+                    className="mt-2 h-7 text-xs text-gray-500 hover:text-gray-900"
+                  >
+                    + Add task
+                  </Button>
+                )}
               </section>
 
               <Separator className="bg-gray-100" />
@@ -684,9 +1177,8 @@ export default function LeadDrawer({ leadId, open, onClose, previewLead }: Props
               </section>
             </div>
           )}
-        </DrawerContent>
-      </Drawer>
-
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

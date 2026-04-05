@@ -1,15 +1,11 @@
 import type { Task } from "@/types";
 
 /**
- * A lead is urgent when it is marked hot OR has at least one open task
- * past its due date. Both `dueAt` and `now` are compared as UTC timestamps,
- * consistent with how Prisma stores DateTime fields.
+ * Open follow-up task past its due time (UTC comparison, same as stored DateTime).
  */
-export function isUrgent(
-  isHot: boolean,
+export function hasLateFollowUp(
   tasks: Pick<Task, "done" | "dueAt">[]
 ): boolean {
-  if (isHot) return true;
   const now = new Date();
   return tasks.some((t) => !t.done && new Date(t.dueAt) < now);
 }

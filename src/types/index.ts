@@ -95,6 +95,11 @@ export type NoteWithStaff = Note & { staff: Staff | null }
 
 export type TaskWithStaff = Task & { staff: Staff | null }
 
+export type TaskWithLead = Task & {
+  staff: Staff | null
+  lead: Lead & { staff: Staff | null }
+}
+
 export type LeadWithBoardRelations = Lead & {
   staff: Staff | null
   tasks: TaskWithStaff[]

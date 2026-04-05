@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, BarChart2 } from "lucide-react";
+import { LayoutGrid, ClipboardList, BarChart2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +15,12 @@ const navItems = [
     label: "Pipeline",
     href: "/",
     icon: LayoutGrid,
+    disabled: false,
+  },
+  {
+    label: "Follow-up",
+    href: "/follow-up",
+    icon: ClipboardList,
     disabled: false,
   },
   {
