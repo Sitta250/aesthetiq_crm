@@ -8,18 +8,19 @@ import {
   fetchTemplatesByLanguage,
 } from "@/lib/lead-queries";
 import { hasLateFollowUp } from "@/lib/urgency";
-import { cn } from "@/lib/utils";
+import { cn, staffShortName } from "@/lib/utils";
 import type { LeadWithBoardRelations } from "@/types";
 
 const SOURCE_LABELS: Record<string, string> = {
-  instagram: "IG",
-  facebook: "FB",
+  instagram: "Instagram",
+  facebook: "Facebook",
   line: "LINE",
-  whatsapp: "WA",
-  website: "Web",
-  referral: "Ref",
+  whatsapp: "WhatsApp",
+  website: "Website",
+  referral: "Referral",
   other: "Other",
 };
+
 
 interface Props {
   lead: LeadWithBoardRelations;
@@ -103,8 +104,8 @@ export default function LeadCard({ lead, onSelect }: Props) {
           {SOURCE_LABELS[lead.source] ?? lead.source}
         </Badge>
         {lead.staff && (
-          <span className="ml-auto font-mono text-[10px] font-medium text-gray-400">
-            {lead.staff.avatarInitials}
+          <span className="ml-auto text-[10px] text-gray-400">
+            {staffShortName(lead.staff.name)}
           </span>
         )}
       </div>

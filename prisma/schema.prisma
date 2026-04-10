@@ -67,6 +67,8 @@ model Task {
 
   staffId String?
   staff   Staff?  @relation(fields: [staffId], references: [id])
+
+  @@index([done, dueAt])
 }
 
 model Note {

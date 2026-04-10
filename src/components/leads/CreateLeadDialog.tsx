@@ -128,13 +128,15 @@ export default function CreateLeadDialog({ open, onOpenChange }: Props) {
     e.preventDefault();
     setErrors({});
 
+    const nationality = form.nationality.trim() || undefined;
     const parsed = CreateLeadSchema.safeParse({
       ...form,
       source: form.source || undefined,
-      nationality: form.nationality.trim() || undefined,
+      nationality,
       phone: form.phone.trim() || undefined,
       email: form.email.trim() || undefined,
       staffId: form.staffId || undefined,
+      isForeign: !!nationality && nationality.toLowerCase() !== "thai",
     });
 
     if (!parsed.success) {
@@ -304,17 +306,6 @@ export default function CreateLeadDialog({ open, onOpenChange }: Props) {
 
           {/* Flags */}
           <div className="flex items-center gap-6">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
-              <input
-                type="checkbox"
-                checked={form.isForeign}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, isForeign: e.target.checked }))
-                }
-                className="h-4 w-4 rounded border-zinc-600 accent-zinc-400"
-              />
-              Foreign patient
-            </label>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
               <input
                 type="checkbox"
